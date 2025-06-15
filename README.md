@@ -303,6 +303,137 @@ async def get_related_videos_tool(video_id: str, max_results: int = 25)
 async def summarize_video(video_id: str, include_comments: bool = True)
 ```
 
+8. **Generate Video Flash Cards**
+
+```python
+@mcp.tool()
+async def generate_video_flashcards(
+    video_id: str,
+    max_cards: int = 10,
+    categories: Optional[List[str]] = None,
+    difficulty: Optional[str] = None
+)
+```
+
+This tool generates educational flash cards from video content:
+
+- Creates different types of cards (Fill in the blank, Q&A, Definition)
+- Includes timestamps for video reference
+- Categorizes cards by type and difficulty
+- Provides card statistics
+
+Example usage:
+
+```python
+# Generate 15 flash cards from a video
+cards = generate_video_flashcards(
+    video_id="dQw4w9WgXcQ",
+    max_cards=15,
+    categories=["Q&A", "Definition"],
+    difficulty="Medium"
+)
+
+# Generate all types of cards
+cards = generate_video_flashcards(
+    video_id="dQw4w9WgXcQ",
+    max_cards=20
+)
+```
+
+Card Types:
+
+- **Fill in the blank**: Tests recall of specific terms or concepts
+- **Q&A**: Questions about key points in the video
+- **Definition**: Explains important concepts
+
+Difficulty Levels:
+
+- **Easy**: Basic recall and understanding
+- **Medium**: Application of concepts
+- **Hard**: Complex concepts and relationships
+
+9. **Generate Video Quiz**
+
+```python
+@mcp.tool()
+async def generate_video_quiz(video_id: str) -> str
+```
+
+This tool generates a comprehensive quiz from video content:
+
+- Creates multiple choice questions
+- Generates true/false statements
+- Includes fill-in-the-blank questions
+- Uses video metadata, transcript, and description
+- Provides answers and explanations
+
+Example usage:
+
+```python
+# Generate a quiz from a video
+quiz = generate_video_quiz("dQw4w9WgXcQ")
+```
+
+Quiz Features:
+
+- **Multiple Choice Questions**
+
+  - Based on video content
+  - Includes video metadata
+  - Tests understanding of key concepts
+
+- **True/False Questions**
+
+  - Tests factual knowledge
+  - Based on video statistics
+  - Verifies understanding of claims
+
+- **Fill in the Blank**
+  - Tests recall of specific terms
+  - Uses transcript content
+  - Focuses on key concepts
+
+Quiz Format:
+
+```python
+=== Video Quiz ===
+Title: [Video Title]
+Channel: [Channel Name]
+URL: [Video URL]
+
+Question 1 (Multiple Choice):
+[Question text]
+1. [Option 1]
+2. [Option 2]
+3. [Option 3]
+4. [Option 4]
+
+Answer: [Correct answer]
+------------------
+
+Question 2 (True/False):
+[Statement]
+
+Answer: True/False
+------------------
+
+Question 3 (Fill in the blank):
+[Question with blank]
+
+Answer: [Correct answer]
+------------------
+```
+
+The quiz tool:
+
+- Generates exactly 10 questions
+- Mixes different question types
+- Includes video context
+- Provides immediate feedback
+- Uses video metadata for questions
+- Incorporates transcript content
+- Tests different levels of understanding
+
 ## 📊 Architecture
 
 The project follows a modular architecture:

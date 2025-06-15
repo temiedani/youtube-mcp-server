@@ -1,6 +1,8 @@
 from typing import Any, List, Dict, Tuple, Optional
 import random
 import re
+from dataclasses import dataclass
+from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
 from yt_helper import construct_video_url, search_youtube
@@ -385,6 +387,167 @@ URL: {construct_video_url(video_id)}
 """
     return header
 
+
+@dataclass
+class FlashCard:
+    """Represents a flash card with front and back content."""
+    front: str
+    back: str
+    timestamp: Optional[str] = None
+    category: Optional[str] = None
+    difficulty: Optional[str] = None
+
+def extract_key_points(transcript: List[Dict[str, Any]], max_cards: int = 10) -> List[FlashCard]:
+    """Extract key points from transcript to create flash cards."""
+    cards = []
+    
+    # Combine transcript into a single text
+    full_text = " ".join(segment['text'] for segment in transcript)
+    
+    # Split into sentences
+    sentences = re.split(r'[.!?]+', full_text)
+    sentences = [s.strip() for s in sentences if len(s.split()) > 5]
+    
+    # Create different types of cards
+    for i in range(min(max_cards, len(sentences))):
+        sentence = sentences[i]
+        timestamp = transcript[i]['start'] if i < len(transcript) else None
+        
+        # Format timestamp as MM:SS
+        if timestamp is not None:
+            minutes = int(timestamp // 60)
+            seconds = int(timestamp % 60)
+            timestamp = f"{minutes:02d}:{seconds:02d}"
+        
+        # Create different types of cards
+        if i % 3 == 0:  # Fill in the blank
+            words = sentence.split()
+            if len(words) > 5:
+                word_to_remove = random.randint(2, len(words)-2)
+                answer = words[word_to_remove]
+                words[word_to_remove] = "_____"
+                front = " ".join(words)
+                back = f"Answer: {answer}\nContext: {sentence}"
+                cards.append(FlashCard(
+                    front=front,
+                    back=back,
+                    timestamp=timestamp,
+                    category="Fill in the blank",
+                    difficulty="Medium"
+                ))
+        
+        elif i % 3 == 1:  # Question-Answer
+            words = sentence.split()
+            if len(words) > 5:
+                front = f"What is the significance of: '{sentence}'?"
+                back = f"Explanation: {sentence}"
+                cards.append(FlashCard(
+                    front=front,
+                    back=back,
+                    timestamp=timestamp,
+                    category="Q&A",
+                    difficulty="Easy"
+                ))
+        
+        else:  # Definition
+            front = f"Define or explain the concept mentioned at {timestamp}:"
+            back = f"Concept: {sentence}"
+            cards.append(FlashCard(
+                front=front,
+                back=back,
+                timestamp=timestamp,
+                category="Definition",
+                difficulty="Hard"
+            ))
+    
+    return cards
+
+def format_flashcards(cards: List[FlashCard]) -> str:
+    """Format flash cards into a readable string."""
+    output = []
+    
+    for i, card in enumerate(cards, 1):
+        output.append(f"\n=== Card {i} ===")
+        output.append(f"Category: {card.category}")
+        output.append(f"Difficulty: {card.difficulty}")
+        if card.timestamp:
+            output.append(f"Timestamp: {card.timestamp}")
+        output.append("\nFront:")
+        output.append(card.front)
+        output.append("\nBack:")
+        output.append(card.back)
+        output.append("-" * 50)
+    
+    return "\n".join(output)
+
+@mcp.tool()
+async def generate_video_flashcards(
+    video_id: str,
+    max_cards: int = 10,
+    categories: Optional[List[str]] = None,
+    difficulty: Optional[str] = None
+) -> str:
+    """Generate flash cards from a YouTube video's content.
+    
+    Args:
+        video_id: YouTube video ID
+        max_cards: Maximum number of cards to generate (default: 10)
+        categories: List of card categories to include (default: all)
+        difficulty: Filter by difficulty level (Easy/Medium/Hard)
+        
+    Returns:
+        Formatted string containing flash cards
+    """
+    # Get video details
+    video = get_video_details(video_id)
+    if not video:
+        return "No video found."
+    
+    # Get transcript
+    transcript = get_video_transcript(video_id)
+    if not transcript:
+        return "No transcript available for this video. Cannot generate flash cards."
+    
+    # Generate cards
+    cards = extract_key_points(transcript, max_cards=max_cards)
+    
+    # Filter by categories if specified
+    if categories:
+        cards = [card for card in cards if card.category in categories]
+    
+    # Filter by difficulty if specified
+    if difficulty:
+        cards = [card for card in cards if card.difficulty == difficulty]
+    
+    # Format the output
+    header = f"""
+=== Video Flash Cards ===
+Title: {video['title']}
+Channel: {video['channel_title']}
+URL: {construct_video_url(video_id)}
+Total Cards: {len(cards)}
+
+"""
+    
+    # Add card statistics
+    categories_count = {}
+    difficulties_count = {}
+    for card in cards:
+        categories_count[card.category] = categories_count.get(card.category, 0) + 1
+        difficulties_count[card.difficulty] = difficulties_count.get(card.difficulty, 0) + 1
+    
+    stats = "\n=== Card Statistics ===\n"
+    stats += "Categories:\n"
+    for category, count in categories_count.items():
+        stats += f"- {category}: {count} cards\n"
+    stats += "\nDifficulties:\n"
+    for diff, count in difficulties_count.items():
+        stats += f"- {diff}: {count} cards\n"
+    
+    # Format the cards
+    cards_text = format_flashcards(cards)
+    
+    return header + stats + cards_text
 
 if __name__ == "__main__":
     # Initialize and run the server
