@@ -1,4 +1,6 @@
-from typing import Any
+from typing import Any, List, Dict, Tuple, Optional
+import random
+import re
 
 from mcp.server.fastmcp import FastMCP
 from yt_helper import construct_video_url, search_youtube
@@ -202,6 +204,186 @@ async def summarize_video(video_id: str, include_comments: bool = True) -> str:
             summary.append(f"Likes: {comment['like_count']}")
     
     return "\n".join(summary)
+
+
+def generate_quiz_questions(video_info: dict[str, Any], transcript: Optional[List[dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """Generate quiz questions from video information and transcript.
+    
+    Args:
+        video_info: Dictionary containing video details
+        transcript: List of transcript segments or None
+        
+    Returns:
+        List of quiz questions with their answers
+    """
+    questions = []
+    
+    # Helper function to create a multiple choice question
+    def create_multiple_choice(question: str, correct_answer: str, wrong_answers: List[str]) -> Dict[str, Any]:
+        answers = [correct_answer] + wrong_answers
+        random.shuffle(answers)
+        return {
+            "type": "multiple_choice",
+            "question": question,
+            "options": answers,
+            "correct_answer": correct_answer
+        }
+    
+    # Helper function to create a true/false question
+    def create_true_false(statement: str, is_true: bool) -> Dict[str, Any]:
+        return {
+            "type": "true_false",
+            "question": statement,
+            "correct_answer": "True" if is_true else "False"
+        }
+    
+    # Helper function to create a fill in the blank question
+    def create_fill_blank(question: str, answer: str) -> Dict[str, Any]:
+        return {
+            "type": "fill_blank",
+            "question": question,
+            "correct_answer": answer
+        }
+    
+    # Generate questions from video metadata
+    questions.append(create_multiple_choice(
+        f"What is the title of this video?",
+        video_info['title'],
+        ["Video Title", "Untitled Video", "No Title Available"]
+    ))
+    
+    questions.append(create_multiple_choice(
+        f"Who is the creator of this video?",
+        video_info['channel_title'],
+        ["Unknown Creator", "YouTube User", "Anonymous"]
+    ))
+    
+    # Generate questions from video statistics
+    view_count = int(video_info.get('view_count', '0'))
+    like_count = int(video_info.get('like_count', '0'))
+    
+    if view_count > 0:
+        questions.append(create_true_false(
+            f"This video has more than {view_count//2} views.",
+            True
+        ))
+    
+    if like_count > 0:
+        questions.append(create_true_false(
+            f"The video has received more likes than views.",
+            False
+        ))
+    
+    # Generate questions from transcript if available
+    if transcript:
+        # Combine transcript into a single text
+        full_text = " ".join(segment['text'] for segment in transcript)
+        
+        # Find sentences that could make good fill-in-the-blank questions
+        sentences = re.split(r'[.!?]+', full_text)
+        valid_sentences = [s.strip() for s in sentences if len(s.split()) > 5 and len(s.split()) < 15]
+        
+        if valid_sentences:
+            # Create a fill-in-the-blank question
+            sentence = random.choice(valid_sentences)
+            words = sentence.split()
+            if len(words) > 5:
+                # Remove a random word (not the first or last)
+                word_to_remove = random.randint(2, len(words)-2)
+                answer = words[word_to_remove]
+                words[word_to_remove] = "_____"
+                question = " ".join(words)
+                questions.append(create_fill_blank(question, answer))
+        
+        # Create a multiple choice question about content
+        if len(valid_sentences) > 3:
+            main_sentence = random.choice(valid_sentences)
+            other_sentences = random.sample([s for s in valid_sentences if s != main_sentence], 3)
+            questions.append(create_multiple_choice(
+                "Which of the following statements appears in the video?",
+                main_sentence,
+                other_sentences
+            ))
+    
+    # Generate questions from description
+    if video_info.get('description'):
+        desc = video_info['description']
+        sentences = re.split(r'[.!?]+', desc)
+        valid_desc_sentences = [s.strip() for s in sentences if len(s.split()) > 5]
+        
+        if valid_desc_sentences:
+            sentence = random.choice(valid_desc_sentences)
+            questions.append(create_true_false(
+                f"The video description mentions: '{sentence}'",
+                True
+            ))
+    
+    # Ensure we have exactly 10 questions
+    while len(questions) < 10:
+        # Add more generic questions if needed
+        questions.append(create_multiple_choice(
+            "What type of content is this video?",
+            "Video Content",
+            ["Audio Only", "Image Slideshow", "Text Document"]
+        ))
+    
+    return questions[:10]  # Return exactly 10 questions
+
+def format_quiz(questions: List[Dict[str, Any]]) -> str:
+    """Format quiz questions into a readable string."""
+    quiz_text = []
+    
+    for i, q in enumerate(questions, 1):
+        quiz_text.append(f"\nQuestion {i} ({q['type'].replace('_', ' ').title()}):")
+        quiz_text.append(f"{q['question']}")
+        
+        if q['type'] == 'multiple_choice':
+            for j, option in enumerate(q['options'], 1):
+                quiz_text.append(f"{j}. {option}")
+        elif q['type'] == 'true_false':
+            quiz_text.append("True/False")
+        elif q['type'] == 'fill_blank':
+            quiz_text.append("Fill in the blank")
+        
+        quiz_text.append(f"\nAnswer: {q['correct_answer']}")
+        quiz_text.append("-" * 50)
+    
+    return "\n".join(quiz_text)
+
+@mcp.tool()
+async def generate_video_quiz(video_id: str) -> str:
+    """Generate a quiz based on the video content.
+    
+    Args:
+        video_id: YouTube video ID
+        
+    Returns:
+        A formatted quiz with 10 questions of various types
+    """
+    # Get video details
+    video = get_video_details(video_id)
+    if not video:
+        return "No video found."
+    
+    # Get transcript
+    transcript = get_video_transcript(video_id)
+    
+    # Generate questions
+    questions = generate_quiz_questions(video, transcript)
+    
+    # Format the quiz
+    quiz = format_quiz(questions)
+    
+    # Add header with video information
+    header = f"""
+=== Video Quiz ===
+Title: {video['title']}
+Channel: {video['channel_title']}
+URL: {construct_video_url(video_id)}
+
+{quiz}
+"""
+    return header
 
 
 if __name__ == "__main__":
