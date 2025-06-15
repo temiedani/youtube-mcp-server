@@ -29,6 +29,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# uv
+.uv/
+.uvcache/
+
 # IDE specific files
 .idea/
 .vscode/

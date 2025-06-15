@@ -27,9 +27,144 @@ Model Contex Protocol (MCP) server that enables AI models to interact with YouTu
 
 ### Prerequisites
 
-- Python 3.8+
-- YouTube Data API credentials
-- pip (Python package manager)
+#### 1. Installing Python
+
+**macOS:**
+
+```bash
+# Using Homebrew (recommended)
+brew install python@3.11
+
+# Verify installation
+python3 --version  # Should show Python 3.11.x
+```
+
+**Linux (Ubuntu/Debian):**
+
+```bash
+# Update package list
+sudo apt update
+
+# Install Python
+sudo apt install python3.11 python3.11-venv
+
+# Verify installation
+python3 --version  # Should show Python 3.11.x
+```
+
+**Windows:**
+
+1. Download Python installer from [python.org](https://www.python.org/downloads/)
+2. Run the installer
+3. Check "Add Python to PATH" during installation
+4. Open Command Prompt and verify:
+
+```cmd
+python --version  # Should show Python 3.11.x
+```
+
+#### 2. Installing uv
+
+**macOS/Linux:**
+
+```bash
+# Install uv using the official installer
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Verify installation
+uv --version
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Install uv using the official installer
+(Invoke-WebRequest -Uri "https://astral.sh/uv/install.ps1" -UseBasicParsing).Content | pwsh -Command -
+
+# Verify installation
+uv --version
+```
+
+**Alternative Installation Methods:**
+
+Using pip (if you prefer):
+
+```bash
+# Install uv using pip
+pip install uv
+
+# Verify installation
+uv --version
+```
+
+#### 3. Setting Up Google Cloud Credentials
+
+1. **Create a Google Cloud Project:**
+
+   ```bash
+   # Go to Google Cloud Console
+   https://console.cloud.google.com
+
+   # Click on "Select a Project" at the top
+   # Click "New Project"
+   # Name it (e.g., "youtube-mcp-server")
+   # Click "Create"
+   ```
+
+2. **Enable YouTube Data API:**
+
+   ```bash
+   # In the Google Cloud Console:
+   # 1. Go to "APIs & Services" > "Library"
+   # 2. Search for "YouTube Data API v3"
+   # 3. Click "Enable"
+   ```
+
+3. **Create OAuth 2.0 Credentials:**
+
+   ```bash
+   # In the Google Cloud Console:
+   # 1. Go to "APIs & Services" > "Credentials"
+   # 2. Click "Create Credentials" > "OAuth client ID"
+   # 3. Select "Desktop app" as application type
+   # 4. Name it (e.g., "YouTube MCP Client")
+   # 5. Click "Create"
+   ```
+
+4. **Download and Store Credentials:**
+
+   ```bash
+   # 1. After creating credentials, click "Download JSON"
+   # 2. Rename the downloaded file to 'credentials.json'
+   # 3. Move it to your project root:
+   mv ~/Downloads/client_secret_*.json ./credentials.json
+
+   # Verify the file exists and has correct permissions
+   ls -l credentials.json  # Should show -rw------- (readable only by you)
+   ```
+
+5. **First-time Authentication:**
+
+   ```bash
+   # Run the server once to authenticate
+   python mcp_videos.py
+
+   # This will:
+   # 1. Open your browser
+   # 2. Ask you to sign in to Google
+   # 3. Grant permissions to the application
+   # 4. Create a token.pickle file (automatically ignored by git)
+   ```
+
+⚠️ **Important Security Notes:**
+
+- Never commit `credentials.json` or `token.pickle` to git
+- Keep your credentials secure and don't share them
+- If credentials are compromised:
+  1. Go to Google Cloud Console
+  2. Delete the compromised credentials
+  3. Create new credentials
+  4. Update your local `credentials.json`
 
 ### Installation
 
@@ -43,14 +178,26 @@ cd youtube-mcp-server
 2. Create and activate a virtual environment:
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source .venv/bin/activate
+# On Windows (Command Prompt):
+.venv\Scripts\activate
+# On Windows (PowerShell):
+.venv\Scripts\Activate.ps1
 ```
 
-3. Install dependencies:
+3. Install dependencies using uv:
 
 ```bash
-pip install -r requirements.txt
+# Install project in editable mode
+uv pip install -e .
+
+# If you encounter any SSL errors on macOS, you might need to:
+export SSL_CERT_FILE=/etc/ssl/cert.pem
 ```
 
 4. Set up YouTube API credentials:
@@ -60,15 +207,42 @@ pip install -r requirements.txt
    - Create credentials (OAuth 2.0 Client ID)
    - Download the credentials and save as `client_secrets.json`
 
+### Development Setup
+
+For development, you might want to install additional tools:
+
+```bash
+# Install development dependencies
+uv pip install -e ".[dev]"
+
+# Install pre-commit hooks
+pre-commit install
+```
+
 ### Configuration
 
 1. Create a `.env` file in the project root:
 
 ```env
+# Required environment variables
 YOUTUBE_API_KEY=your_api_key_here
+
+# Optional configuration
+YOUTUBE_API_QUOTA_LIMIT=10000  # Daily quota limit
+YOUTUBE_API_REGION=US          # Default region
 ```
 
-2. Update the configuration as needed in `config.py`
+2. Verify your setup:
+
+```bash
+# Check if credentials are properly set up
+ls -l credentials.json  # Should exist and be readable
+ls -l .env             # Should exist and be readable
+ls -l token.pickle     # Should exist after first authentication
+
+# Test the server
+python mcp_videos.py
+```
 
 ## 🛠️ Usage
 
@@ -281,3 +455,137 @@ git rm --cached client_secrets.json
 3. Regularly rotate API keys and tokens
 4. Use OAuth 2.0 for authentication
 5. Monitor GitHub's secret scanning alerts
+
+## 🖥️ Claude Desktop Setup
+
+### 1. Install Claude Desktop
+
+1. **Download Claude Desktop:**
+
+   - Visit [Claude Desktop](https://claude.ai/download)
+   - Download the appropriate version for your OS:
+     - macOS: `.dmg` file
+     - Windows: `.exe` installer
+     - Linux: `.AppImage` or `.deb` package
+
+2. **Install the Application:**
+
+   ```bash
+   # macOS
+   # 1. Open the .dmg file
+   # 2. Drag Claude to Applications folder
+   # 3. Open from Applications
+
+   # Windows
+   # 1. Run the .exe installer
+   # 2. Follow the installation wizard
+   # 3. Launch from Start Menu
+
+   # Linux (Ubuntu/Debian)
+   sudo dpkg -i claude-desktop_*.deb  # For .deb package
+   # OR
+   chmod +x Claude-*.AppImage         # For AppImage
+   ./Claude-*.AppImage
+   ```
+
+### 2. Configure MCP Client
+
+1. **Open Claude Desktop Settings:**
+
+   - Click on the gear icon (⚙️) or
+   - Use keyboard shortcut:
+     - macOS: `Cmd + ,`
+     - Windows/Linux: `Ctrl + ,`
+
+2. **Add MCP Configuration:**
+
+   - Navigate to "MCP Settings" or "Advanced Settings"
+   - Add the following configuration:
+
+   ```json
+   {
+     "mcpServers": {
+       "youtube_videos": {
+         "command": "uv",
+         "args": [
+           "--directory",
+           "<your base directory>/youtube-mcp-server",
+           "run",
+           "mcp_videos.py"
+         ]
+       }
+     }
+   }
+   ```
+
+3. **Replace Path:**
+
+   - Replace `<your base directory>` with your actual project path
+   - Example for different OS:
+
+     ```json
+     // macOS/Linux
+     "/Users/username/Documents/youtube-mcp-server"
+
+     // Windows
+     "C:\\Users\\username\\Documents\\youtube-mcp-server"
+     ```
+
+4. **Verify Configuration:**
+   ```bash
+   # Test the MCP server path
+   cd "<your base directory>/youtube-mcp-server"
+   uv run mcp_videos.py
+   ```
+
+### 3. Using Claude with MCP
+
+1. **Start Claude Desktop**
+2. **Connect to MCP Server:**
+
+   - The server should start automatically
+   - You'll see a connection status indicator
+   - Available tools will be listed in the interface
+
+3. **Test the Connection:**
+   ```python
+   # Try a simple command
+   get_videos("python programming", max_results=5)
+   ```
+
+### Troubleshooting MCP Connection
+
+1. **Server Won't Start:**
+
+   ```bash
+   # Check if the path is correct
+   pwd  # Should show your project directory
+
+   # Verify Python environment
+   which python  # Should point to your virtual environment
+
+   # Check uv installation
+   uv --version
+   ```
+
+2. **Connection Issues:**
+
+   - Verify the server is running
+   - Check the configuration path
+   - Ensure all dependencies are installed
+   - Check the logs in Claude Desktop
+
+3. **Common Errors:**
+
+   ```bash
+   # Path not found
+   # Solution: Use absolute path in configuration
+
+   # Permission denied
+   # Solution: Check file permissions
+   chmod +x mcp_videos.py
+
+   # Module not found
+   # Solution: Verify virtual environment
+   source .venv/bin/activate  # or appropriate activation command
+   ```
